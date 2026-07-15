@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="C4 Gestão">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <rect x="96" y="96" width="320" height="320" rx="48" fill="#111827" stroke="#34d399" stroke-width="16"/>
+  <path d="M180 280h152" stroke="#fbbf24" stroke-width="24" stroke-linecap="round"/>
+  <path d="M180 232h152" stroke="#34d399" stroke-width="24" stroke-linecap="round"/>
+  <path d="M180 184h96" stroke="#60a5fa" stroke-width="24" stroke-linecap="round"/>
+  <path d="M244 332c30-18 64-54 76-98" stroke="#f8fafc" stroke-width="22" stroke-linecap="round"/>
+</svg>
