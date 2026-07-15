@@ -3,31 +3,141 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product, StockItem, Movement } from './types';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
-import { 
-  INITIAL_PRODUCTS, 
-  INITIAL_STOCK, 
-  INITIAL_MOVEMENTS 
+import {
+  INITIAL_PRODUCTS,
+  INITIAL_STOCK,
+  INITIAL_MOVEMENTS
 } from './data/mockProducts';
 import MovementScreen from './components/MovementScreen';
 import InventoryScreen from './components/InventoryScreen';
-import { 
-  ClipboardList, 
-  Archive, 
+import { STOCK_TEMPLATE_ALIASES, STOCK_TEMPLATE_HEADERS } from './utils/stockTemplate';
+import {
+  ClipboardList,
+  Archive,
   RotateCcw,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  FileUp
 } from 'lucide-react';
+
+const normalizeText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const findColumnKey = (headers: string[], aliases: string[]) => {
+  const normalizedHeaders = headers.map((header) => normalizeText(header));
+  const foundIndex = normalizedHeaders.findIndex((header) =>
+    aliases.some((alias) => header === normalizeText(alias))
+  );
+  return foundIndex >= 0 ? headers[foundIndex] : null;
+};
+
+const parseQuantity = (value: unknown) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+  const text = String(value ?? '').trim().replace(',', '.');
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+};
+
+const toIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayIsoDate = () => toIsoDate(new Date());
+
+const toIsoDateUtc = (date: Date) => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseSpreadsheetDate = (value: unknown): string | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    const parsedDate = new Date(excelEpoch + value * 86400000);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return toIsoDateUtc(parsedDate);
+    }
+    return undefined;
+  }
+
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return undefined;
+  }
+
+  const ddMmYyyy = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
+  const matched = text.match(ddMmYyyy);
+  if (matched) {
+    const day = Number(matched[1]);
+    const month = Number(matched[2]);
+    const year = Number(matched[3]);
+    const parsedDate = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return toIsoDate(parsedDate);
+    }
+  }
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return toIsoDate(parsedDate);
+  }
+
+  return undefined;
+};
+
+const matchesStockIdentity = (
+  item: Pick<StockItem, 'productCode' | 'unit' | 'lot' | 'address' | 'manufacturingDate' | 'expirationDate' | 'supplier' | 'invoiceNumber' | 'receivedDate' | 'notes'>,
+  candidate: Pick<StockItem, 'productCode' | 'unit' | 'lot' | 'address' | 'manufacturingDate' | 'expirationDate' | 'supplier' | 'invoiceNumber' | 'receivedDate' | 'notes'>
+) =>
+  item.productCode === candidate.productCode &&
+  item.unit === candidate.unit &&
+  item.lot === candidate.lot &&
+  item.address === candidate.address &&
+  (item.manufacturingDate || '') === (candidate.manufacturingDate || '') &&
+  item.expirationDate === candidate.expirationDate &&
+  (item.supplier || '') === (candidate.supplier || '') &&
+  (item.invoiceNumber || '') === (candidate.invoiceNumber || '') &&
+  item.receivedDate === candidate.receivedDate &&
+  (item.notes || '') === (candidate.notes || '');
+
+const normalizeStockItem = (item: StockItem) => ({
+  ...item,
+  unit: item.unit || 'UN',
+  supplier: item.supplier || undefined,
+  invoiceNumber: item.invoiceNumber || undefined,
+  receivedDate: item.receivedDate || item.manufacturingDate || getTodayIsoDate(),
+  notes: item.notes || undefined,
+});
+
+const normalizeMovement = (movement: Movement) => ({
+  ...movement,
+  unit: movement.unit || 'UN',
+  supplier: movement.supplier || undefined,
+  invoiceNumber: movement.invoiceNumber || undefined,
+  receivedDate: movement.receivedDate || movement.timestamp.split('T')[0] || getTodayIsoDate(),
+  notes: movement.notes || undefined,
+});
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<'MOVIMENTACAO' | 'CONSULTA'>('MOVIMENTACAO');
-  
+
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('fast_stock_products');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
@@ -35,18 +145,19 @@ export default function App() {
 
   const [stock, setStock] = useState<StockItem[]>(() => {
     const saved = localStorage.getItem('fast_stock_inventory');
-    return saved ? JSON.parse(saved) : INITIAL_STOCK;
+    return saved ? JSON.parse(saved).map(normalizeStockItem) : INITIAL_STOCK.map(normalizeStockItem);
   });
 
   const [movements, setMovements] = useState<Movement[]>(() => {
     const saved = localStorage.getItem('fast_stock_movements');
-    return saved ? JSON.parse(saved) : INITIAL_MOVEMENTS;
+    return saved ? JSON.parse(saved).map(normalizeMovement) : INITIAL_MOVEMENTS.map(normalizeMovement);
   });
 
   const [scannedCode, setScannedCode] = useState<string>('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('fast_stock_products', JSON.stringify(products));
@@ -83,8 +194,10 @@ export default function App() {
       const isBarcodeSearchInput = target.id === 'barcode-search-input';
 
       if (isInput && !isBarcodeSearchInput) {
-        if (e.key === 'Enter') {
-        }
+        return;
+      }
+
+      if (isBarcodeSearchInput) {
         return;
       }
 
@@ -135,6 +248,154 @@ export default function App() {
     }
   };
 
+  const handleImportProducts = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const inputElement = event.target;
+    const file = inputElement.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const data = await file.arrayBuffer();
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+
+      if (!firstSheetName) {
+        showNotification('Não foi possível localizar planilha para importação.', 'info');
+        return;
+      }
+
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+      if (rows.length === 0) {
+        showNotification('A planilha está vazia.', 'info');
+        return;
+      }
+
+      const headers = Object.keys(rows[0]);
+      const codeKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[0]]);
+      const nameKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[1]]);
+      const qtyKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[2]]);
+      const unitKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[3]]);
+      const categoryKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[4]]);
+      const lotKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[5]]);
+      const manufacturingKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[6]]);
+      const expirationKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[7]]);
+      const addressKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[8]]);
+      const supplierKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[9]]);
+      const invoiceKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[10]]);
+      const receivedKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[11]]);
+      const notesKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[12]]);
+
+      if (!codeKey || !nameKey) {
+        showNotification('A planilha precisa ter colunas de código e descrição/nome.', 'info');
+        return;
+      }
+
+      const importedProducts: Product[] = [];
+      const importedStockEntries: Omit<StockItem, 'id'>[] = [];
+      let skippedRows = 0;
+
+      for (const row of rows) {
+        const code = String(row[codeKey] ?? '').trim();
+        const name = String(row[nameKey] ?? '').trim();
+
+        if (!code || !name) {
+          skippedRows += 1;
+          continue;
+        }
+
+        importedProducts.push({
+          code,
+          name,
+          category: categoryKey ? String(row[categoryKey] ?? '').trim() || 'Geral' : 'Geral'
+        });
+
+        const quantity = qtyKey ? parseQuantity(row[qtyKey]) : 0;
+        if (quantity > 0) {
+          const unitValue = String(unitKey ? row[unitKey] ?? '' : '').trim().toUpperCase();
+          const unit = unitValue === 'FD' || unitValue === 'CX' ? unitValue : 'UN';
+          importedStockEntries.push({
+            productCode: code,
+            productName: name,
+            quantity,
+            unit,
+            lot: lotKey ? String(row[lotKey] ?? '').trim().toUpperCase() || 'IMPORTADO' : 'IMPORTADO',
+            manufacturingDate: manufacturingKey ? parseSpreadsheetDate(row[manufacturingKey]) : undefined,
+            expirationDate:
+              (expirationKey ? parseSpreadsheetDate(row[expirationKey]) : undefined) ||
+              toIsoDate(new Date(new Date().setFullYear(new Date().getFullYear() + 2))),
+            address: addressKey ? String(row[addressKey] ?? '').trim().toUpperCase() || 'IMPORTADO' : 'IMPORTADO',
+            supplier: supplierKey ? String(row[supplierKey] ?? '').trim() || undefined : undefined,
+            invoiceNumber: invoiceKey ? String(row[invoiceKey] ?? '').trim() || undefined : undefined,
+            receivedDate: (receivedKey ? parseSpreadsheetDate(row[receivedKey]) : undefined) || getTodayIsoDate(),
+            notes: notesKey ? String(row[notesKey] ?? '').trim() || undefined : undefined
+          });
+        }
+      }
+
+      if (importedProducts.length === 0) {
+        showNotification('Nenhuma linha válida encontrada para importar.', 'info');
+        return;
+      }
+
+      const mergedProductsMap = new Map<string, Product>();
+      for (const product of products) {
+        mergedProductsMap.set(product.code, product);
+      }
+      for (const importedProduct of importedProducts) {
+        mergedProductsMap.set(importedProduct.code, importedProduct);
+      }
+      const mergedProducts = Array.from(mergedProductsMap.values());
+      setProducts(mergedProducts);
+
+      const now = Date.now();
+      let importSequence = 0;
+      const mergedProductNameByCode = new Map(mergedProducts.map((product) => [product.code, product.name]));
+      const updatedStock = stock.map((item) => {
+        const updatedName = mergedProductNameByCode.get(item.productCode);
+        if (!updatedName || updatedName === item.productName) {
+          return item;
+        }
+        return { ...item, productName: updatedName };
+      });
+
+      for (const importedItem of importedStockEntries) {
+        const resolvedName = mergedProductNameByCode.get(importedItem.productCode) ?? importedItem.productName;
+        const existingIndex = updatedStock.findIndex(
+          (item) => matchesStockIdentity(item, importedItem)
+        );
+
+        if (existingIndex >= 0) {
+          updatedStock[existingIndex] = {
+            ...updatedStock[existingIndex],
+            productName: resolvedName,
+            quantity: updatedStock[existingIndex].quantity + importedItem.quantity
+          };
+        } else {
+          importSequence += 1;
+          updatedStock.unshift({
+            id: `stock-import-${now}-${importSequence}`,
+            ...importedItem,
+            productName: resolvedName
+          });
+        }
+      }
+      setStock(updatedStock);
+
+      const importedMessage = `${importedProducts.length} produtos importados`;
+      const stockMessage = importedStockEntries.length > 0 ? ` e ${importedStockEntries.length} saldos aplicados` : '';
+      const skippedMessage = skippedRows > 0 ? ` (${skippedRows} linhas ignoradas)` : '';
+      showNotification(`${importedMessage}${stockMessage}${skippedMessage}.`, 'success');
+    } catch {
+      showNotification('Erro ao importar planilha. Verifique o formato do arquivo Excel.', 'info');
+    } finally {
+      inputElement.value = '';
+    }
+  };
+
   const handleAddProduct = (newProduct: Product) => {
     setProducts((prev) => {
       if (prev.some(p => p.code === newProduct.code)) return prev;
@@ -152,13 +413,10 @@ export default function App() {
 
     setStock((prevStock) => {
       const stockCopy = [...prevStock];
-      
+
       if (newMov.type === 'ENTRADA') {
         const existingItemIndex = stockCopy.findIndex(
-          (item) => 
-            item.productCode === newMov.productCode &&
-            item.lot === newMov.lot &&
-            item.address === newMov.address
+          (item) => matchesStockIdentity(item, newMov)
         );
 
         if (existingItemIndex > -1) {
@@ -172,32 +430,16 @@ export default function App() {
             productCode: newMov.productCode,
             productName: newMov.productName,
             quantity: newMov.quantity,
+            unit: newMov.unit,
             lot: newMov.lot,
             manufacturingDate: newMov.manufacturingDate,
             expirationDate: newMov.expirationDate,
-            address: newMov.address
+            address: newMov.address,
+            supplier: newMov.supplier,
+            invoiceNumber: newMov.invoiceNumber,
+            receivedDate: newMov.receivedDate,
+            notes: newMov.notes
           });
-        }
-      } else if (newMov.type === 'SAIDA') {
-        const existingItemIndex = stockCopy.findIndex(
-          (item) => 
-            item.productCode === newMov.productCode &&
-            item.lot === newMov.lot &&
-            item.address === newMov.address
-        );
-
-        if (existingItemIndex > -1) {
-          const currentQty = stockCopy[existingItemIndex].quantity;
-          const remainingQty = Math.max(0, currentQty - newMov.quantity);
-          
-          if (remainingQty === 0) {
-            stockCopy.splice(existingItemIndex, 1);
-          } else {
-            stockCopy[existingItemIndex] = {
-              ...stockCopy[existingItemIndex],
-              quantity: remainingQty
-            };
-          }
         }
       }
 
@@ -219,61 +461,36 @@ export default function App() {
     setStock((prevStock) => {
       const stockCopy = [...prevStock];
 
-      if (movToCancel.type === 'ENTRADA') {
-        const existingIndex = stockCopy.findIndex(
-          (item) => 
-            item.productCode === movToCancel.productCode &&
-            item.lot === movToCancel.lot &&
-            item.address === movToCancel.address
-        );
+      const existingIndex = stockCopy.findIndex(
+        (item) => matchesStockIdentity(item, movToCancel)
+      );
 
-        if (existingIndex > -1) {
-          const currentQty = stockCopy[existingIndex].quantity;
-          const remaining = Math.max(0, currentQty - movToCancel.quantity);
-          if (remaining === 0) {
-            stockCopy.splice(existingIndex, 1);
-          } else {
-            stockCopy[existingIndex] = { ...stockCopy[existingIndex], quantity: remaining };
-          }
-        }
-      } else if (movToCancel.type === 'SAIDA') {
-        const existingIndex = stockCopy.findIndex(
-          (item) => 
-            item.productCode === movToCancel.productCode &&
-            item.lot === movToCancel.lot &&
-            item.address === movToCancel.address
-        );
-
-        if (existingIndex > -1) {
-          stockCopy[existingIndex] = {
-            ...stockCopy[existingIndex],
-            quantity: stockCopy[existingIndex].quantity + movToCancel.quantity
-          };
+      if (existingIndex > -1) {
+        const currentQty = stockCopy[existingIndex].quantity;
+        const remaining = Math.max(0, currentQty - movToCancel.quantity);
+        if (remaining === 0) {
+          stockCopy.splice(existingIndex, 1);
         } else {
-          stockCopy.push({
-            id: `stock-recreated-${Date.now()}`,
-            productCode: movToCancel.productCode,
-            productName: movToCancel.productName,
-            quantity: movToCancel.quantity,
-            lot: movToCancel.lot,
-            manufacturingDate: movToCancel.manufacturingDate,
-            expirationDate: movToCancel.expirationDate,
-            address: movToCancel.address
-          });
+          stockCopy[existingIndex] = { ...stockCopy[existingIndex], quantity: remaining };
         }
       }
 
       return stockCopy;
     });
 
-    showNotification(`Movimentação estornada com sucesso. Estoque atualizado!`, 'info');
+    showNotification('Movimentação estornada com sucesso. Estoque atualizado!', 'info');
   };
 
   const handleResetDatabase = () => {
-    const confirm = window.confirm(
+    const password = window.prompt('Digite a senha para limpar a base geral:');
+    if (password !== '@Maral22') {
+      showNotification('Senha inválida. A base não foi apagada.', 'info');
+      return;
+    }
+    const confirmed = window.confirm(
       'Atenção: Isso irá APAGAR de forma irreversível todos os produtos cadastrados, estoque atual e histórico de movimentações. Deseja iniciar uma base limpa?'
     );
-    if (confirm) {
+    if (confirmed) {
       localStorage.removeItem('fast_stock_products');
       localStorage.removeItem('fast_stock_inventory');
       localStorage.removeItem('fast_stock_movements');
@@ -306,6 +523,21 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportProducts}
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              className="text-[11px] font-bold text-slate-300 hover:text-emerald-300 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+              title="Importar produtos e quantidades de planilha Excel"
+            >
+              <FileUp className="h-3 w-3" />
+              Importar Excel
+            </button>
             <button
               onClick={handleResetDatabase}
               className="text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
@@ -340,8 +572,8 @@ export default function App() {
         {notification && (
           <div className="max-w-md mx-auto mt-4 px-4">
             <div className={`p-3.5 rounded-xl text-xs font-semibold shadow-md flex items-center gap-2 animate-bounce ${
-              notification.type === 'success' 
-                ? 'bg-emerald-600 text-white' 
+              notification.type === 'success'
+                ? 'bg-emerald-600 text-white'
                 : 'bg-indigo-600 text-white'
             }`}>
               <CheckCircle2 className="h-4.5 w-4.5 text-white shrink-0" />
@@ -380,7 +612,7 @@ export default function App() {
 
         <div className="mt-4">
           {activeScreen === 'MOVIMENTACAO' && (
-            <MovementScreen 
+            <MovementScreen
               products={products}
               stock={stock}
               onAddMovement={handleAddMovement}
@@ -391,7 +623,7 @@ export default function App() {
           )}
 
           {activeScreen === 'CONSULTA' && (
-            <InventoryScreen 
+            <InventoryScreen
               products={products}
               stock={stock}
               movements={movements}

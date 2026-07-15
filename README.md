@@ -18,6 +18,20 @@ Aplicativo PWA para conferência rápida de entradas de mercadorias em estoque, 
 
 Este projeto já inclui um workflow para publicação automática no GitHub Pages.
 
+## Importação de produtos por Excel
+
+Na barra superior do app há o botão **Importar Excel**. Ele importa produtos e saldo inicial.
+
+- Formatos aceitos: `.xlsx` e `.xls`
+- Colunas obrigatórias: `Codigo de Barras` e `Descricao`
+- Colunas opcionais: `Quantidade`, `Unidade`, `Categoria`, `Lote`, `Fabricacao`, `Vencimento`, `Endereco`, `Fornecedor`, `Numero da Nota`, `Data de Recebimento`, `Observacoes`
+
+Se o produto já existir, o cadastro é atualizado; se vier `quantidade`, o saldo é somado ao estoque atual.
+
+## Exportação do estoque
+
+Na tela de consulta, o botão **Exportar Excel** gera uma planilha no mesmo layout da importação, facilitando baixar, revisar e reimportar a base quando necessário.
+
 ## Tecnologias
 
 - React + TypeScript
