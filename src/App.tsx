@@ -275,19 +275,14 @@ export default function App() {
       }
 
       const headers = Object.keys(rows[0]);
-      const codeKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[0]]);
-      const nameKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[1]]);
-      const qtyKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[2]]);
-      const unitKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[3]]);
-      const categoryKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[4]]);
-      const lotKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[5]]);
-      const manufacturingKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[6]]);
-      const expirationKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[7]]);
-      const addressKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[8]]);
-      const supplierKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[9]]);
-      const invoiceKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[10]]);
-      const receivedKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[11]]);
-      const notesKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[STOCK_TEMPLATE_HEADERS[12]]);
+      const codeKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES['Codigo de barra']);
+      const nameKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Descricao);
+      const lotKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Lote);
+      const manufacturingKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Fabricacao);
+      const expirationKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Vencimento);
+      const addressKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Endereco);
+      const qtyKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Quantidade);
+      const unitKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES['Un. Medida']);
 
       if (!codeKey || !nameKey) {
         showNotification('A planilha precisa ter colunas de código e descrição/nome.', 'info');
@@ -310,7 +305,7 @@ export default function App() {
         importedProducts.push({
           code,
           name,
-          category: categoryKey ? String(row[categoryKey] ?? '').trim() || 'Geral' : 'Geral'
+          category: 'Geral'
         });
 
         const quantity = qtyKey ? parseQuantity(row[qtyKey]) : 0;
@@ -328,10 +323,10 @@ export default function App() {
               (expirationKey ? parseSpreadsheetDate(row[expirationKey]) : undefined) ||
               toIsoDate(new Date(new Date().setFullYear(new Date().getFullYear() + 2))),
             address: addressKey ? String(row[addressKey] ?? '').trim().toUpperCase() || 'IMPORTADO' : 'IMPORTADO',
-            supplier: supplierKey ? String(row[supplierKey] ?? '').trim() || undefined : undefined,
-            invoiceNumber: invoiceKey ? String(row[invoiceKey] ?? '').trim() || undefined : undefined,
-            receivedDate: (receivedKey ? parseSpreadsheetDate(row[receivedKey]) : undefined) || getTodayIsoDate(),
-            notes: notesKey ? String(row[notesKey] ?? '').trim() || undefined : undefined
+            supplier: undefined,
+            invoiceNumber: undefined,
+            receivedDate: getTodayIsoDate(),
+            notes: undefined
           });
         }
       }
@@ -478,7 +473,8 @@ export default function App() {
       return stockCopy;
     });
 
-    showNotification('Movimentação estornada com sucesso. Estoque atualizado!', 'info');
+    showNotification(
+      'Movimentação estornada com sucesso. Estoque atualizado!', 'info');
   };
 
   const handleResetDatabase = () => {
