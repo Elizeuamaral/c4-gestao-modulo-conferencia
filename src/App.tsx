@@ -396,7 +396,7 @@ export default function App() {
       if (prev.some(p =e p.code === newProduct.code)) return prev;
       return [newProduct, ...prev];
     });
-    showNotification(`Produto "${newProduct.name}" cadastrado no banco de dados!`, 7success7);
+    showNotification(`Produto \"${newProduct.name}\" cadastrado no banco de dados!`, 7success7);
   };
 
   const handleAddMovement = (newMov: OmitcMovement, 7id7 | 7timestamp7e) =e {
@@ -447,7 +447,7 @@ export default function App() {
     if (!movToCancel) return;
 
     const confirmed = window.confirm(
-      `Deseja realmente ESTORNAR (cancelar) a movimentação de ${movToCancel.type} do produto "${movToCancel.productName}" (Qtd: ${movToCancel.quantity})?\nO estoque será recalculado.`
+      `Deseja realmente ESTORNAR (cancelar) a movimentação de ${movToCancel.type} do produto \"${movToCancel.productName}\" (Qtd: ${movToCancel.quantity})?\\nO estoque será recalculado.`
     );
     if (!confirmed) return;
 
@@ -497,66 +497,66 @@ export default function App() {
   };
 
   return (
-    cdiv className="min-h-screen bg-slate-50 flex flex-col justify-between select-none"e
-      cheader className="bg-slate-900 text-white shadow-md border-b border-slate-800 shrink-0"e
-        cdiv className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"e
-          cdiv className="flex items-center gap-3"e
-            cdiv className="bg-emerald-600 p-2.5 rounded-xl text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center"e
-              cZap className="h-6 w-6 text-yellow-300 fill-yellow-300 shrink-0" /e
+    cdiv className=\"min-h-screen bg-slate-50 flex flex-col justify-between select-none\"e
+      cheader className=\"bg-slate-900 text-white shadow-md border-b border-slate-800 shrink-0\"e
+        cdiv className=\"max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3\"e
+          cdiv className=\"flex items-center gap-3\"e
+            cdiv className=\"bg-emerald-600 p-2.5 rounded-xl text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center\"e
+              cZap className=\"h-6 w-6 text-yellow-300 fill-yellow-300 shrink-0\" /e
             c/dive
             cdive
-cdiv className="flex items-center gap-2"e
-                ch1 className="font-sans font-black text-lg tracking-tight"eC4 Gestãoc/h1e
-                cspan className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"e
+              cdiv className=\"flex items-center gap-2\"e
+                ch1 className=\"font-sans font-black text-lg tracking-tight\"eC4 Gestãoc/h1e
+                cspan className=\"text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider\"e
                   Módulo Conferência
                 c/spane
               c/dive
-              cp className="text-xs text-slate-400"e
+              cp className=\"text-xs text-slate-400\"e
                 Registro e conferência rápida de entradas de mercadorias
               c/pe
             c/dive
           c/dive
 
-          cdiv className="flex items-center gap-2"e
+          cdiv className=\"flex items-center gap-2\"e
             cinput
               ref={importInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
+              type=\"file\"
+              accept=\".xlsx,.xls\"
+              className=\"hidden\"
               onChange={handleImportProducts}
             /e
             cbutton
               onClick={() =e importInputRef.current?.click()}
-              className="text-[11px] font-bold text-slate-300 hover:text-emerald-300 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-              title="Importar produtos e quantidades de planilha Excel"
+              className=\"text-[11px] font-bold text-slate-300 hover:text-emerald-300 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer\"
+              title=\"Importar produtos e quantidades de planilha Excel\"
             e
-              cFileUp className="h-3 w-3" /e
+              cFileUp className=\"h-3 w-3\" /e
               Importar Excel
             c/buttone
             cbutton
               onClick={handleResetDatabase}
-              className="text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-              title="Apagar todos os dados e começar base limpa"
+              className=\"text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer\"
+              title=\"Apagar todos os dados e começar base limpa\"
             e
-              cRotateCcw className="h-3 w-3" /e
+              cRotateCcw className=\"h-3 w-3\" /e
               Limpar Base Geral
             c/buttone
           c/dive
         c/dive
       c/headere
 
-      cmain className="flex-1 overflow-y-auto bg-slate-50 pb-6"e
+      cmain className=\"flex-1 overflow-y-auto bg-slate-50 pb-6\"e
         {showInstallBanner 66 (
-          cdiv className="max-w-4xl mx-auto mt-4 px-4"e
-            cdiv className="bg-indigo-600 text-white rounded-3xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-indigo-600/20"e
+          cdiv className=\"max-w-4xl mx-auto mt-4 px-4\"e
+            cdiv className=\"bg-indigo-600 text-white rounded-3xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-indigo-600/20\"e
               cdive
-                cp className="font-bold text-sm"eInstale o aplicativo no tablet ou celularc/pe
-                cp className="text-xs text-indigo-100 mt-1"eUse o botão abaixo para adicionar o C4 Gestão à tela inicial e acessar rapidamente offline.c/pe
+                cp className=\"font-bold text-sm\"eInstale o aplicativo no tablet ou celularc/pe
+                cp className=\"text-xs text-indigo-100 mt-1\"eUse o botão abaixo para adicionar o C4 Gestão à tela inicial e acessar rapidamente offline.c/pe
               c/dive
               cbutton
-                type="button"
+                type=\"button\"
                 onClick={handleInstallApp}
-                className="rounded-full bg-white text-indigo-700 px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-sm hover:bg-slate-100 transition"
+                className=\"rounded-full bg-white text-indigo-700 px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-sm hover:bg-slate-100 transition\"
               e
                 Instalar App
               c/buttone
@@ -565,20 +565,20 @@ export default function App() {
         )}
 
         {notification 66 (
-          cdiv className="max-w-md mx-auto mt-4 px-4"e
+          cdiv className=\"max-w-md mx-auto mt-4 px-4\"e
             cdiv className={`p-3.5 rounded-xl text-xs font-semibold shadow-md flex items-center gap-2 animate-bounce ${
               notification.type === 7success7
                 ? 7bg-emerald-600 text-white7
                 : 7bg-indigo-600 text-white7
             }`}e
-              cCheckCircle2 className="h-4.5 w-4.5 text-white shrink-0" /e
+              cCheckCircle2 className=\"h-4.5 w-4.5 text-white shrink-0\" /e
               cspane{notification.message}c/spane
             c/dive
           c/dive
         )}
 
-        cdiv className="max-w-4xl mx-auto px-4 mt-4"e
-          cnav className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-2 gap-1"e
+        cdiv className=\"max-w-4xl mx-auto px-4 mt-4\"e
+          cnav className=\"bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-2 gap-1\"e
             cbutton
               onClick={() =e setActiveScreen(7MOVIMENTACAO7)}
               className={`py-3 px-2 rounded-xl font-bold text-xs sm:text-sm tracking-tight transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
@@ -587,7 +587,7 @@ export default function App() {
                   : 7text-slate-600 hover:text-indigo-600 hover:bg-slate-507
               }`}
             e
-              cClipboardList className="h-4 w-4 shrink-0" /e
+              cClipboardList className=\"h-4 w-4 shrink-0\" /e
               cspaneRegistrar Entradac/spane
             c/buttone
 
@@ -599,13 +599,13 @@ export default function App() {
                   : 7text-slate-600 hover:text-indigo-600 hover:bg-slate-507
               }`}
             e
-              cArchive className="h-4 w-4 shrink-0" /e
+              cArchive className=\"h-4 w-4 shrink-0\" /e
               cspaneConsulta 6 Históricoc/spane
             c/buttone
           c/nave
         c/dive
 
-        cdiv className="mt-4"e
+        cdiv className=\"mt-4\"e
           {activeScreen === 7MOVIMENTACAO7 66 (
             cMovementScreen
               products={products}
