@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Product, StockItem, Movement } from '../types';
+import { MOVEMENT_EXPORT_HEADERS } from '../utils/stockTemplate';
 import { 
   Search, 
   Archive, 
@@ -84,12 +85,11 @@ export default function InventoryScreen({
   };
 
   const exportToCSV = () => {
-    let headers: string[] = [];
+    const headers = [...MOVEMENT_EXPORT_HEADERS];
     let rows: string[][] = [];
     let filename = '';
 
     if (activeTab === 'ESTOQUE') {
-      headers = ['Codigo Produto', 'Nome Produto', 'Lote', 'Fabricacao', 'Vencimento', 'Endereco', 'Quantidade'];
       rows = filteredStock.map(item => [
         item.productCode,
         item.productName,
@@ -97,19 +97,20 @@ export default function InventoryScreen({
         item.manufacturingDate || 'N/A',
         item.expirationDate,
         item.address,
-        item.quantity.toString()
+        item.quantity.toString(),
+        item.unit
       ]);
       filename = 'estoque_atual.csv';
     } else {
-      headers = ['Data Hora', 'Codigo', 'Produto', 'Lote', 'Vencimento', 'Endereco', 'Quantidade'];
       rows = filteredMovements.map(mov => [
-        formatDateTime(mov.timestamp),
         mov.productCode,
         mov.productName,
         mov.lot,
+        mov.manufacturingDate || 'N/A',
         mov.expirationDate,
         mov.address,
-        mov.quantity.toString()
+        mov.quantity.toString(),
+        mov.unit
       ]);
       filename = 'historico_movimentacoes.csv';
     }
