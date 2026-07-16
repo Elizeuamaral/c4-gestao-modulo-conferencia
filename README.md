@@ -23,8 +23,8 @@ Este projeto já inclui um workflow para publicação automática no GitHub Page
 Na barra superior do app há o botão **Importar Excel**. Ele importa produtos e saldo inicial.
 
 - Formatos aceitos: `.xlsx` e `.xls`
-- Colunas obrigatórias: `Codigo de Barras` e `Descricao`
-- Colunas opcionais: `Quantidade`, `Unidade`, `Categoria`, `Lote`, `Fabricacao`, `Vencimento`, `Endereco`, `Fornecedor`, `Numero da Nota`, `Data de Recebimento`, `Observacoes`
+- Layout padrão de colunas: `Codigo de barra`, `Descricao`, `Lote`, `Fabricacao`, `Vencimento`, `Endereco`, `Quantidade`, `Un. Medida`
+- Colunas obrigatórias: `Codigo de barra` e `Descricao`
 
 Se o produto já existir, o cadastro é atualizado; se vier `quantidade`, o saldo é somado ao estoque atual.
 
