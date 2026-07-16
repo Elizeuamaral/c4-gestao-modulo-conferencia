@@ -18,9 +18,12 @@ import {
   Plus,
   Layers,
   Truck,
-  FileText
+  FileText,
+  Check,
+  Trash2
 } from 'lucide-react';
 import { STOCK_LOCATIONS } from '../data/mockProducts';
+import { STOCK_TEMPLATE_HEADERS } from '../utils/stockTemplate';
 
 interface MovementScreenProps {
   products: Product[];
@@ -31,6 +34,10 @@ interface MovementScreenProps {
   scannedCode: string;
   setScannedCode: (code: string) => void;
 }
+
+type PendingMovementEntry = Omit<Movement, 'id' | 'timestamp' | 'supplier' | 'invoiceNumber'> & {
+  queueId: string;
+};
 
 export default function MovementScreen({
   products,
@@ -55,6 +62,14 @@ export default function MovementScreen({
     const targetStart = new Date(year, month - 1, day).getTime();
     return Math.round((targetStart - todayStart) / (1000 * 3600 * 24));
   };
+  const formatDisplayDate = (dateValue?: string) => {
+    if (!dateValue) return '-';
+    const [year, month, day] = dateValue.split('-');
+    if (year && month && day) {
+      return `${day}/${month}/${year}`;
+    }
+    return dateValue;
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
@@ -77,6 +92,8 @@ export default function MovementScreen({
   const [keepFocus, setKeepFocus] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showEntryConfirmationModal, setShowEntryConfirmationModal] = useState(false);
+  const [pendingEntries, setPendingEntries] = useState<PendingMovementEntry[]>([]);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const lastInputTimeRef = useRef(0);
@@ -128,10 +145,9 @@ export default function MovementScreen({
         setManufacturingDate('');
         setUnit('UN');
         setAddress('');
-        setSupplier('');
-        setInvoiceNumber('');
         setReceivedDate(getTodayIsoDate());
         setNotes('');
+        setShowEntryConfirmationModal(false);
       }
       playSuccessBeep();
       setErrorMessage(null);
@@ -147,6 +163,7 @@ export default function MovementScreen({
       setUnit('UN');
       setAddress('');
       setQuantity(1);
+      setShowEntryConfirmationModal(false);
       playErrorBuzzer();
       setErrorMessage(`Código "${code}" não cadastrado. Digite o nome para cadastrar.`);
     }
@@ -222,7 +239,7 @@ export default function MovementScreen({
     }
   };
 
-  const handleClearForm = () => {
+  const resetCurrentEntryFields = () => {
     setSearchQuery('');
     setSelectedProduct(null);
     setProductName('');
@@ -232,23 +249,30 @@ export default function MovementScreen({
     setExpirationDate('');
     setUnit('UN');
     setAddress('');
-    setSupplier('');
-    setInvoiceNumber('');
     setReceivedDate(getTodayIsoDate());
     setNotes('');
     setIsNewProduct(false);
+    setShowProductSuggestions(false);
+    if (barcodeInputRef.current) barcodeInputRef.current.focus();
+  };
+
+  const handleClearForm = () => {
+    resetCurrentEntryFields();
+    setSupplier('');
+    setInvoiceNumber('');
     setErrorMessage(null);
     setSuccessMessage(null);
     setShowProductSuggestions(false);
+    setShowEntryConfirmationModal(false);
+    setPendingEntries([]);
     scannerTypingRef.current = false;
     if (suggestionTimeoutRef.current) {
       window.clearTimeout(suggestionTimeoutRef.current);
       suggestionTimeoutRef.current = null;
     }
-    if (barcodeInputRef.current) barcodeInputRef.current.focus();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleAddToQueue = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -278,18 +302,6 @@ export default function MovementScreen({
       return;
     }
 
-    if (!lot.trim()) {
-      setErrorMessage('O número de lote é obrigatório.');
-      playErrorBuzzer();
-      return;
-    }
-
-    if (!manufacturingDate) {
-      setErrorMessage('A data de fabricação é obrigatória.');
-      playErrorBuzzer();
-      return;
-    }
-
     if (!expirationDate) {
       setErrorMessage('A data de vencimento é obrigatória.');
       playErrorBuzzer();
@@ -298,30 +310,6 @@ export default function MovementScreen({
 
     if (!receivedDate) {
       setErrorMessage('A data de recebimento é obrigatória.');
-      playErrorBuzzer();
-      return;
-    }
-
-    if (!address.trim()) {
-      setErrorMessage('O endereço de estoque (localização) é obrigatório.');
-      playErrorBuzzer();
-      return;
-    }
-
-    if (!supplier.trim()) {
-      setErrorMessage('O fornecedor é obrigatório.');
-      playErrorBuzzer();
-      return;
-    }
-
-    if (!invoiceNumber.trim()) {
-      setErrorMessage('O número da nota é obrigatório.');
-      playErrorBuzzer();
-      return;
-    }
-
-    if (!notes.trim()) {
-      setErrorMessage('As observações são obrigatórias.');
       playErrorBuzzer();
       return;
     }
@@ -337,45 +325,88 @@ export default function MovementScreen({
       setIsNewProduct(false);
     }
 
-    // Save movement
-    onAddMovement({
+    setPendingEntries((prev) => [{
+      queueId: `queue-${Date.now()}-${prev.length + 1}`,
       productCode: code,
       productName: productName.trim(),
       type,
       quantity,
       unit,
       lot: lot.trim().toUpperCase(),
-      manufacturingDate,
+      manufacturingDate: manufacturingDate || undefined,
       expirationDate,
       address: address.trim().toUpperCase(),
-      supplier: supplier.trim(),
-      invoiceNumber: invoiceNumber.trim().toUpperCase(),
       receivedDate,
-      notes: notes.trim(),
-    });
+      notes: notes.trim() || undefined,
+    }, ...prev]);
 
     playSuccessBeep();
-    setSuccessMessage(`Sucesso! Entrada registrada de ${quantity} un de "${productName.trim()}".`);
-    
-    // Clear form except searchable code to facilitate consecutive bips of other items
-    setSearchQuery('');
-    setSelectedProduct(null);
-    setProductName('');
-    setQuantity(1);
-    setUnit('UN');
-    setLot('');
-    setManufacturingDate('');
-    setExpirationDate('');
-    setAddress('');
+    setSuccessMessage(`Item "${productName.trim()}" adicionado na lista de conferência.`);
+    resetCurrentEntryFields();
+  };
+
+  const handleOpenEntryConfirmation = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (pendingEntries.length === 0) {
+      setErrorMessage('Adicione ao menos um item na lista antes de confirmar a entrada.');
+      playErrorBuzzer();
+      return;
+    }
+    setShowEntryConfirmationModal(true);
+  };
+
+  const handleConfirmBatchEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!supplier.trim()) {
+      setErrorMessage('O fornecedor é obrigatório.');
+      playErrorBuzzer();
+      return;
+    }
+
+    if (!invoiceNumber.trim()) {
+      setErrorMessage('O número da nota é obrigatório.');
+      playErrorBuzzer();
+      return;
+    }
+
+    for (const entry of pendingEntries) {
+      onAddMovement({
+        productCode: entry.productCode,
+        productName: entry.productName,
+        type: entry.type,
+        quantity: entry.quantity,
+        unit: entry.unit,
+        lot: entry.lot,
+        manufacturingDate: entry.manufacturingDate,
+        expirationDate: entry.expirationDate,
+        address: entry.address,
+        supplier: supplier.trim(),
+        invoiceNumber: invoiceNumber.trim().toUpperCase(),
+        receivedDate: entry.receivedDate,
+        notes: entry.notes,
+      });
+    }
+
+    const totalItems = pendingEntries.length;
+    setPendingEntries([]);
     setSupplier('');
     setInvoiceNumber('');
-    setReceivedDate(getTodayIsoDate());
-    setNotes('');
+    setShowEntryConfirmationModal(false);
+    setSuccessMessage(`Sucesso! ${totalItems} item(ns) foram registrados no estoque.`);
+    playSuccessBeep();
 
     // Flash success message auto-hide
     setTimeout(() => {
       setSuccessMessage(null);
     }, 4000);
+  };
+
+  const handleRemoveQueuedItem = (queueId: string) => {
+    setPendingEntries((prev) => prev.filter((entry) => entry.queueId !== queueId));
   };
 
   // Filter products for dropdown suggestion
@@ -385,6 +416,45 @@ export default function MovementScreen({
         p.code.includes(searchQuery)
       ).slice(0, 5)
     : [];
+
+  const getQueueColumnValue = (entry: PendingMovementEntry, header: (typeof STOCK_TEMPLATE_HEADERS)[number]) => {
+    switch (header) {
+      case 'Codigo de barra':
+        return entry.productCode;
+      case 'Descricao':
+        return entry.productName;
+      case 'Lote':
+        return entry.lot || '-';
+      case 'Fabricacao':
+        return formatDisplayDate(entry.manufacturingDate);
+      case 'Vencimento':
+        return formatDisplayDate(entry.expirationDate);
+      case 'Endereco':
+        return entry.address || '-';
+      case 'Quantidade':
+        return entry.quantity;
+      case 'Un. Medida':
+        return entry.unit;
+      default:
+        return '-';
+    }
+  };
+
+  const getQueueCellClass = (header: (typeof STOCK_TEMPLATE_HEADERS)[number]) => {
+    if (header === 'Codigo de barra' || header === 'Lote' || header === 'Endereco') {
+      return 'font-mono text-slate-600';
+    }
+    if (header === 'Quantidade') {
+      return 'text-right font-semibold text-slate-800';
+    }
+    if (header === 'Descricao') {
+      return 'text-slate-700';
+    }
+    if (header === 'Un. Medida') {
+      return 'font-semibold text-slate-700';
+    }
+    return 'text-slate-600';
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-4 font-sans">
@@ -418,7 +488,7 @@ export default function MovementScreen({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleAddToQueue} className="p-6 space-y-6">
           {/* STEP 1: Search / Bip Barcode */}
           <div className="space-y-2 relative">
             <label className="block text-sm font-semibold text-slate-700 flex justify-between items-center">
@@ -514,7 +584,7 @@ export default function MovementScreen({
               />
               {isNewProduct && (
                 <span className="text-xs text-amber-600 font-semibold flex items-center gap-1 animate-pulse">
-                  <Plus className="h-3 w-3" /> Novo produto será cadastrado automaticamente ao salvar.
+                  <Plus className="h-3 w-3" /> Novo produto será cadastrado automaticamente ao adicionar na lista.
                 </span>
               )}
             </div>
@@ -581,8 +651,9 @@ export default function MovementScreen({
                   type="text"
                   value={lot}
                   onChange={(e) => setLot(e.target.value.toUpperCase())}
-                  placeholder="EX: L-AB12"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-slate-800 uppercase bg-white"
+                  placeholder="Campo bloqueado"
+                  disabled
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 font-mono text-slate-600 uppercase bg-slate-100 cursor-not-allowed"
                   id="lot-input"
                 />
               </div>
@@ -594,7 +665,8 @@ export default function MovementScreen({
                   type="date"
                   value={manufacturingDate}
                   onChange={(e) => setManufacturingDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-sans text-slate-800 bg-white"
+                  disabled
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 font-sans text-slate-600 bg-slate-100 cursor-not-allowed"
                   id="mfg-date-input"
                 />
               </div>
@@ -633,8 +705,9 @@ export default function MovementScreen({
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value.toUpperCase())}
-                  placeholder="EX: SETOR-A-01 ou PRAT-B2"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-slate-800 uppercase bg-white"
+                  placeholder="Campo bloqueado"
+                  disabled
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 font-mono text-slate-600 uppercase bg-slate-100 cursor-not-allowed"
                   id="address-input"
                   list="stock-location-options"
                 />
@@ -658,7 +731,101 @@ export default function MovementScreen({
               ))}
             </datalist>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">Observações adicionais</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: Nota fiscal, Fornecedor X, Operador fulano..."
+              className="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+              id="notes-input"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-3 rounded-xl text-white font-bold text-base transition-all duration-200 shadow-md flex items-center justify-center gap-2 active:scale-95 cursor-pointer bg-indigo-600 hover:bg-indigo-500 shadow-indigo-100"
+            id="btn-adicionar-lista-conferencia"
+          >
+            <Check className="h-5 w-5" />
+            OK - ADICIONAR NA LISTA
+          </button>
+        </form>
+
+        <div className="px-6 pb-6 space-y-4">
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Lista de conferência ({pendingEntries.length})
+            </div>
+            {pendingEntries.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-slate-500 text-center">
+                Nenhum item lançado. Bipe o produto e clique em OK para adicionar na lista.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-white border-b border-slate-200 text-slate-500">
+                    <tr>
+                      {STOCK_TEMPLATE_HEADERS.map((header) => (
+                        <th
+                          key={header}
+                          className={`px-3 py-2 font-semibold ${header === 'Quantidade' ? 'text-right' : 'text-left'}`}
+                        >
+                          {header}
+                        </th>
+                      ))}
+                      <th className="px-3 py-2 text-center font-semibold">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pendingEntries.map((entry) => (
+                      <tr key={entry.queueId} className="hover:bg-slate-50">
+                        {STOCK_TEMPLATE_HEADERS.map((header) => (
+                          <td key={`${entry.queueId}-${header}`} className={`px-3 py-2 ${getQueueCellClass(header)}`}>
+                            {getQueueColumnValue(entry, header)}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQueuedItem(entry.queueId)}
+                            className="inline-flex items-center justify-center rounded-md p-1.5 text-rose-600 hover:bg-rose-50"
+                            title="Remover item da lista"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenEntryConfirmation}
+            className="w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-200 shadow-md flex items-center justify-center gap-2 active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-500 shadow-emerald-100 disabled:bg-slate-300 disabled:cursor-not-allowed"
+            id="btn-salvar-movimentacao"
+            disabled={pendingEntries.length === 0}
+          >
+            <CornerDownRight className="h-5 w-5" />
+            CONFIRMAR ENTRADA EM ESTOQUE
+          </button>
+        </div>
+      </div>
+
+      {showEntryConfirmationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-200">
+            <h3 className="text-base font-bold text-slate-800 mb-4">Confirmar entrada em estoque</h3>
+            <p className="text-xs text-slate-500 mb-4">Serão registrados {pendingEntries.length} item(ns) da lista de conferência.</p>
+            <form onSubmit={handleConfirmBatchEntry} className="space-y-4">
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-600 flex items-center gap-1">
                   <Truck className="h-3.5 w-3.5 text-indigo-500" />
@@ -688,33 +855,26 @@ export default function MovementScreen({
                   id="invoice-number-input"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">Observações adicionais</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Nota fiscal, Fornecedor X, Operador fulano..."
-              className="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
-              id="notes-input"
-            />
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowEntryConfirmationModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </form>
           </div>
-
-          {/* Save Button */}
-          <button
-            type="submit"
-            className="w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-200 shadow-md flex items-center justify-center gap-2 active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-500 shadow-emerald-100"
-            id="btn-salvar-movimentacao"
-          >
-            <CornerDownRight className="h-5 w-5" />
-            CONFIRMAR ENTRADA EM ESTOQUE
-          </button>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
