@@ -339,7 +339,7 @@ export default function InventoryScreen({
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right font-bold font-mono text-sm whitespace-nowrap text-slate-800">
-                            {item.quantity} un
+                            {item.quantity} {item.unit}
                           </td>
                         </tr>
                       );
@@ -405,7 +405,7 @@ export default function InventoryScreen({
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right font-bold font-mono text-sm whitespace-nowrap text-emerald-600">
-                            +{mov.quantity}
+                            +{mov.quantity} {mov.unit}
                           </td>
                           {onDeleteMovement && (
                             <td className="py-3 px-4 text-center">
