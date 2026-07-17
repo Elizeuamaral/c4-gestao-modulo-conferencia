@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react';
 import { Product, StockItem, Movement } from '../types';
-import { MOVEMENT_EXPORT_HEADERS } from '../utils/stockTemplate';
 import { 
   Search, 
   Archive, 
@@ -85,29 +84,67 @@ export default function InventoryScreen({
   };
 
   const exportToCSV = () => {
-    const headers = [...MOVEMENT_EXPORT_HEADERS];
+    let headers: string[] = [];
     let rows: string[][] = [];
     let filename = '';
 
     if (activeTab === 'ESTOQUE') {
+      headers = [
+        'Codigo de barra',
+        'Descricao',
+        'Lote',
+        'Fabricacao',
+        'Vencimento',
+        'Endereco',
+        'Quantidade',
+        'Un. Medida',
+        'N. Nota',
+        'Fornecedor',
+        'Data lancamento',
+        'Situacao de vencimento',
+        'Observacao',
+      ];
       rows = filteredStock.map(item => [
         item.productCode,
         item.productName,
         item.lot,
-        item.manufacturingDate || 'N/A',
-        item.expirationDate,
+        formatDate(item.manufacturingDate),
+        formatDate(item.expirationDate),
         item.address,
         item.quantity.toString(),
-        item.unit
+        item.unit,
+        item.invoiceNumber || '',
+        item.supplier || '',
+        formatDate(item.receivedDate),
+        (() => {
+          const daysRemaining = Math.ceil(
+            (new Date(item.expirationDate).getTime() - Date.now()) / (1000 * 3600 * 24)
+          );
+          if (daysRemaining < 0) return 'VENCIDO';
+          if (daysRemaining <= 30) return 'Urgente';
+          if (daysRemaining <= 90) return 'Alerta';
+          return 'Seguro';
+        })(),
+        item.notes || '',
       ]);
       filename = 'estoque_atual.csv';
     } else {
+      headers = [
+        'Codigo de barra',
+        'Descricao',
+        'Lote',
+        'Fabricacao',
+        'Vencimento',
+        'Endereco',
+        'Quantidade',
+        'Un. Medida',
+      ];
       rows = filteredMovements.map(mov => [
         mov.productCode,
         mov.productName,
         mov.lot,
-        mov.manufacturingDate || 'N/A',
-        mov.expirationDate,
+        formatDate(mov.manufacturingDate),
+        formatDate(mov.expirationDate),
         mov.address,
         mov.quantity.toString(),
         mov.unit
