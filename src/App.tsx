@@ -3,21 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 7react7;
-import { Product, StockItem, Movement } from 7./types7;
+import React, { useState, useEffect, useRef } from 'react';
+import { Product, StockItem, Movement } from './types';
 
-type BeforeInstallPromptEvent = Event 6 {
-  prompt: () =e Promisecvoide;
-  userChoice: Promisec{ outcome: 7accepted7 | 7dismissed7; platform: string }e;
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 import {
   INITIAL_PRODUCTS,
   INITIAL_STOCK,
   INITIAL_MOVEMENTS
-} from 7./data/mockProducts7;
-import MovementScreen from 7./components/MovementScreen7;
-import InventoryScreen from 7./components/InventoryScreen7;
-import { STOCK_TEMPLATE_ALIASES, STOCK_TEMPLATE_HEADERS } from 7./utils/stockTemplate7;
+} from './data/mockProducts';
+import MovementScreen from './components/MovementScreen';
+import InventoryScreen from './components/InventoryScreen';
+import { STOCK_TEMPLATE_ALIASES, STOCK_TEMPLATE_HEADERS } from './utils/stockTemplate';
 import {
   ClipboardList,
   Archive,
@@ -25,50 +25,50 @@ import {
   Zap,
   CheckCircle2,
   FileUp
-} from 7lucide-react7;
+} from 'lucide-react';
 
-const normalizeText = (value: string) =e
+const normalizeText = (value: string) =>
   value
-    .normalize(7NFD7)
-    .replace(/[\u0300-\u036f]/g, 77)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 
-const findColumnKey = (headers: string[], aliases: string[]) =e {
-  const normalizedHeaders = headers.map((header) =e normalizeText(header));
-  const foundIndex = normalizedHeaders.findIndex((header) =e
-    aliases.some((alias) =e header === normalizeText(alias))
+const findColumnKey = (headers: string[], aliases: string[]) => {
+  const normalizedHeaders = headers.map((header) => normalizeText(header));
+  const foundIndex = normalizedHeaders.findIndex((header) =>
+    aliases.some((alias) => header === normalizeText(alias))
   );
-  return foundIndex e= 0 ? headers[foundIndex] : null;
+  return foundIndex >= 0 ? headers[foundIndex] : null;
 };
 
-const parseQuantity = (value: unknown) =e {
-  if (typeof value === 7number7) {
+const parseQuantity = (value: unknown) => {
+  if (typeof value === 'number') {
     return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
   }
-  const text = String(value ?? 77).trim().replace(7,7, 7.7);
+  const text = String(value ?? '').trim().replace(',', '.');
   const parsed = Number(text);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
 };
 
-const toIsoDate = (date: Date) =e {
+const toIsoDate = (date: Date) => {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, 707);
-  const day = String(date.getDate()).padStart(2, 707);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-const getTodayIsoDate = () =e toIsoDate(new Date());
+const getTodayIsoDate = () => toIsoDate(new Date());
 
-const toIsoDateUtc = (date: Date) =e {
+const toIsoDateUtc = (date: Date) => {
   const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, 707);
-  const day = String(date.getUTCDate()).padStart(2, 707);
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-const parseSpreadsheetDate = (value: unknown): string | undefined =e {
-  if (typeof value === 7number7 66 Number.isFinite(value)) {
+const parseSpreadsheetDate = (value: unknown): string | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     const excelEpoch = Date.UTC(1899, 11, 30);
     const parsedDate = new Date(excelEpoch + value * 86400000);
     if (!Number.isNaN(parsedDate.getTime())) {
@@ -77,7 +77,7 @@ const parseSpreadsheetDate = (value: unknown): string | undefined =e {
     return undefined;
   }
 
-  const text = String(value ?? 77).trim();
+  const text = String(value ?? '').trim();
   if (!text) {
     return undefined;
   }
@@ -103,97 +103,97 @@ const parseSpreadsheetDate = (value: unknown): string | undefined =e {
 };
 
 const matchesStockIdentity = (
-  item: PickcStockItem, 7productCode7 | 7unit7 | 7lot7 | 7address7 | 7manufacturingDate7 | 7expirationDate7 | 7supplier7 | 7invoiceNumber7 | 7receivedDate7 | 7notes7e,
-  candidate: PickcStockItem, 7productCode7 | 7unit7 | 7lot7 | 7address7 | 7manufacturingDate7 | 7expirationDate7 | 7supplier7 | 7invoiceNumber7 | 7receivedDate7 | 7notes7e
-) =e
-  item.productCode === candidate.productCode 66
-  item.unit === candidate.unit 66
-  item.lot === candidate.lot 66
-  item.address === candidate.address 66
-  (item.manufacturingDate || 77) === (candidate.manufacturingDate || 77) 66
-  item.expirationDate === candidate.expirationDate 66
-  (item.supplier || 77) === (candidate.supplier || 77) 66
-  (item.invoiceNumber || 77) === (candidate.invoiceNumber || 77) 66
-  item.receivedDate === candidate.receivedDate 66
-  (item.notes || 77) === (candidate.notes || 77);
+  item: Pick<StockItem, 'productCode' | 'unit' | 'lot' | 'address' | 'manufacturingDate' | 'expirationDate' | 'supplier' | 'invoiceNumber' | 'receivedDate' | 'notes'>,
+  candidate: Pick<StockItem, 'productCode' | 'unit' | 'lot' | 'address' | 'manufacturingDate' | 'expirationDate' | 'supplier' | 'invoiceNumber' | 'receivedDate' | 'notes'>
+) =>
+  item.productCode === candidate.productCode &&
+  item.unit === candidate.unit &&
+  item.lot === candidate.lot &&
+  item.address === candidate.address &&
+  (item.manufacturingDate || '') === (candidate.manufacturingDate || '') &&
+  item.expirationDate === candidate.expirationDate &&
+  (item.supplier || '') === (candidate.supplier || '') &&
+  (item.invoiceNumber || '') === (candidate.invoiceNumber || '') &&
+  item.receivedDate === candidate.receivedDate &&
+  (item.notes || '') === (candidate.notes || '');
 
-const normalizeStockItem = (item: StockItem) =e ({
+const normalizeStockItem = (item: StockItem) => ({
   ...item,
-  unit: item.unit || 7UN7,
+  unit: item.unit || 'UN',
   supplier: item.supplier || undefined,
   invoiceNumber: item.invoiceNumber || undefined,
   receivedDate: item.receivedDate || item.manufacturingDate || getTodayIsoDate(),
   notes: item.notes || undefined,
 });
 
-const normalizeMovement = (movement: Movement) =e ({
+const normalizeMovement = (movement: Movement) => ({
   ...movement,
-  unit: movement.unit || 7UN7,
+  unit: movement.unit || 'UN',
   supplier: movement.supplier || undefined,
   invoiceNumber: movement.invoiceNumber || undefined,
-  receivedDate: movement.receivedDate || movement.timestamp.split(7T7)[0] || getTodayIsoDate(),
+  receivedDate: movement.receivedDate || movement.timestamp.split('T')[0] || getTodayIsoDate(),
   notes: movement.notes || undefined,
 });
 
 export default function App() {
-  const [activeScreen, setActiveScreen] = useStatec7MOVIMENTACAO7 | 7CONSULTA7e(7MOVIMENTACAO7);
+  const [activeScreen, setActiveScreen] = useState<'MOVIMENTACAO' | 'CONSULTA'>('MOVIMENTACAO');
 
-  const [products, setProducts] = useStatecProduct[]e(() =e {
-    const saved = localStorage.getItem(7fast_stock_products7);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('fast_stock_products');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
 
-  const [stock, setStock] = useStatecStockItem[]e(() =e {
-    const saved = localStorage.getItem(7fast_stock_inventory7);
+  const [stock, setStock] = useState<StockItem[]>(() => {
+    const saved = localStorage.getItem('fast_stock_inventory');
     return saved ? JSON.parse(saved).map(normalizeStockItem) : INITIAL_STOCK.map(normalizeStockItem);
   });
 
-  const [movements, setMovements] = useStatecMovement[]e(() =e {
-    const saved = localStorage.getItem(7fast_stock_movements7);
+  const [movements, setMovements] = useState<Movement[]>(() => {
+    const saved = localStorage.getItem('fast_stock_movements');
     return saved ? JSON.parse(saved).map(normalizeMovement) : INITIAL_MOVEMENTS.map(normalizeMovement);
   });
 
-  const [scannedCode, setScannedCode] = useStatecstringe(77);
-  const [notification, setNotification] = useStatec{message: string, type: 7success7 | 7info7} | nulle(null);
-  const [installPromptEvent, setInstallPromptEvent] = useStatecBeforeInstallPromptEvent | nulle(null);
+  const [scannedCode, setScannedCode] = useState<string>('');
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const importInputRef = useRefcHTMLInputElemente(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() =e {
-    localStorage.setItem(7fast_stock_products7, JSON.stringify(products));
+  useEffect(() => {
+    localStorage.setItem('fast_stock_products', JSON.stringify(products));
   }, [products]);
 
-  useEffect(() =e {
-    localStorage.setItem(7fast_stock_inventory7, JSON.stringify(stock));
+  useEffect(() => {
+    localStorage.setItem('fast_stock_inventory', JSON.stringify(stock));
   }, [stock]);
 
-  useEffect(() =e {
-    localStorage.setItem(7fast_stock_movements7, JSON.stringify(movements));
+  useEffect(() => {
+    localStorage.setItem('fast_stock_movements', JSON.stringify(movements));
   }, [movements]);
 
-  useEffect(() =e {
-    const beforeInstallPromptHandler = (event: Event) =e {
+  useEffect(() => {
+    const beforeInstallPromptHandler = (event: Event) => {
       event.preventDefault();
       setInstallPromptEvent(event as BeforeInstallPromptEvent);
       setShowInstallBanner(true);
     };
 
-    window.addEventListener(7beforeinstallprompt7, beforeInstallPromptHandler as EventListener);
-    return () =e {
-      window.removeEventListener(7beforeinstallprompt7, beforeInstallPromptHandler as EventListener);
+    window.addEventListener('beforeinstallprompt', beforeInstallPromptHandler as EventListener);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', beforeInstallPromptHandler as EventListener);
     };
   }, []);
 
-  useEffect(() =e {
-    let buffer = 77;
+  useEffect(() => {
+    let buffer = '';
     let lastKeyTime = Date.now();
 
-    const handleGlobalKeyDown = (e: KeyboardEvent) =e {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 7INPUT7 || target.tagName === 7TEXTAREA7 || target.contentEditable === 7true7;
-      const isBarcodeSearchInput = target.id === 7barcode-search-input7;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true';
+      const isBarcodeSearchInput = target.id === 'barcode-search-input';
 
-      if (isInput 66 !isBarcodeSearchInput) {
+      if (isInput && !isBarcodeSearchInput) {
         return;
       }
 
@@ -205,50 +205,50 @@ export default function App() {
       const timeDiff = currentTime - lastKeyTime;
       lastKeyTime = currentTime;
 
-      if (timeDiff e 100 66 e.key !== 7Enter7) {
-        buffer = 77;
+      if (timeDiff > 100 && e.key !== 'Enter') {
+        buffer = '';
       }
 
-      if (e.key.length === 1 66 /[a-zA-Z0-9]/.test(e.key)) {
+      if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
         buffer += e.key;
-      } else if (e.key === 7Enter7) {
-        if (buffer.length e= 4) {
+      } else if (e.key === 'Enter') {
+        if (buffer.length >= 4) {
           e.preventDefault();
-          setActiveScreen(7MOVIMENTACAO7);
+          setActiveScreen('MOVIMENTACAO');
           setScannedCode(buffer);
-          showNotification(`Scanner Bluetooth detectou código: ${buffer}`, 7success7);
-          buffer = 77;
+          showNotification(`Scanner Bluetooth detectou código: ${buffer}`, 'success');
+          buffer = '';
         }
       }
     };
 
-    window.addEventListener(7keydown7, handleGlobalKeyDown);
-    return () =e {
-      window.removeEventListener(7keydown7, handleGlobalKeyDown);
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
     };
   }, []);
 
-  const showNotification = (message: string, type: 7success7 | 7info7 = 7success7) =e {
+  const showNotification = (message: string, type: 'success' | 'info' = 'success') => {
     setNotification({ message, type });
-    setTimeout(() =e {
+    setTimeout(() => {
       setNotification(null);
     }, 4000);
   };
 
-  const handleInstallApp = async () =e {
+  const handleInstallApp = async () => {
     if (!installPromptEvent) return;
     installPromptEvent.prompt();
     const choiceResult = await installPromptEvent.userChoice;
     setInstallPromptEvent(null);
     setShowInstallBanner(false);
-    if (choiceResult.outcome === 7accepted7) {
-      showNotification(7Instalação aceita! Adicionado à tela inicial.7, 7success7);
+    if (choiceResult.outcome === 'accepted') {
+      showNotification('Instalação aceita! Adicionado à tela inicial.', 'success');
     } else {
-      showNotification(7Instalação cancelada pelo usuário.7, 7info7);
+      showNotification('Instalação cancelada pelo usuário.', 'info');
     }
   };
 
-  const handleImportProducts = async (event: React.ChangeEventcHTMLInputElemente) =e {
+  const handleImportProducts = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const inputElement = event.target;
     const file = inputElement.files?.[0];
     if (!file) {
@@ -257,45 +257,45 @@ export default function App() {
 
     try {
       const data = await file.arrayBuffer();
-      const XLSX = await import(7xlsx7);
-      const workbook = XLSX.read(data, { type: 7array7, cellDates: true });
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
       const firstSheetName = workbook.SheetNames[0];
 
       if (!firstSheetName) {
-        showNotification(7Não foi possível localizar planilha para importação.7, 7info7);
+        showNotification('Não foi possível localizar planilha para importação.', 'info');
         return;
       }
 
       const sheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_jsoncRecordcstring, unknownee(sheet, { defval: 77 });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
 
       if (rows.length === 0) {
-        showNotification(7A planilha está vazia.7, 7info7);
+        showNotification('A planilha está vazia.', 'info');
         return;
       }
 
       const headers = Object.keys(rows[0]);
-      const codeKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[7Codigo de barra7]);
+      const codeKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES['Codigo de barra']);
       const nameKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Descricao);
       const lotKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Lote);
       const manufacturingKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Fabricacao);
       const expirationKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Vencimento);
       const addressKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Endereco);
       const qtyKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES.Quantidade);
-      const unitKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES[7Un. Medida7]);
+      const unitKey = findColumnKey(headers, STOCK_TEMPLATE_ALIASES['Un. Medida']);
 
       if (!codeKey || !nameKey) {
-        showNotification(7A planilha precisa ter colunas de código e descrição/nome.7, 7info7);
+        showNotification('A planilha precisa ter colunas de código e descrição/nome.', 'info');
         return;
       }
 
       const importedProducts: Product[] = [];
-      const importedStockEntries: OmitcStockItem, 7id7e[] = [];
+      const importedStockEntries: Omit<StockItem, 'id'>[] = [];
       let skippedRows = 0;
 
       for (const row of rows) {
-        const code = String(row[codeKey] ?? 77).trim();
-        const name = String(row[nameKey] ?? 77).trim();
+        const code = String(row[codeKey] ?? '').trim();
+        const name = String(row[nameKey] ?? '').trim();
 
         if (!code || !name) {
           skippedRows += 1;
@@ -305,24 +305,24 @@ export default function App() {
         importedProducts.push({
           code,
           name,
-          category: 7Geral7
+          category: 'Geral'
         });
 
         const quantity = qtyKey ? parseQuantity(row[qtyKey]) : 0;
-        if (quantity e 0) {
-          const unitValue = String(unitKey ? row[unitKey] ?? 77 : 77).trim().toUpperCase();
-          const unit = unitValue === 7FD7 || unitValue === 7CX7 ? unitValue : 7UN7;
+        if (quantity > 0) {
+          const unitValue = String(unitKey ? row[unitKey] ?? '' : '').trim().toUpperCase();
+          const unit = unitValue === 'FD' || unitValue === 'CX' ? unitValue : 'UN';
           importedStockEntries.push({
             productCode: code,
             productName: name,
             quantity,
             unit,
-            lot: lotKey ? String(row[lotKey] ?? 77).trim().toUpperCase() || 7IMPORTADO7 : 7IMPORTADO7,
+            lot: lotKey ? String(row[lotKey] ?? '').trim().toUpperCase() || 'IMPORTADO' : 'IMPORTADO',
             manufacturingDate: manufacturingKey ? parseSpreadsheetDate(row[manufacturingKey]) : undefined,
             expirationDate:
               (expirationKey ? parseSpreadsheetDate(row[expirationKey]) : undefined) ||
               toIsoDate(new Date(new Date().setFullYear(new Date().getFullYear() + 2))),
-            address: addressKey ? String(row[addressKey] ?? 77).trim().toUpperCase() || 7IMPORTADO7 : 7IMPORTADO7,
+            address: addressKey ? String(row[addressKey] ?? '').trim().toUpperCase() || 'IMPORTADO' : 'IMPORTADO',
             supplier: undefined,
             invoiceNumber: undefined,
             receivedDate: getTodayIsoDate(),
@@ -332,11 +332,11 @@ export default function App() {
       }
 
       if (importedProducts.length === 0) {
-        showNotification(7Nenhuma linha válida encontrada para importar.7, 7info7);
+        showNotification('Nenhuma linha válida encontrada para importar.', 'info');
         return;
       }
 
-      const mergedProductsMap = new Mapcstring, Producte();
+      const mergedProductsMap = new Map<string, Product>();
       for (const product of products) {
         mergedProductsMap.set(product.code, product);
       }
@@ -348,8 +348,8 @@ export default function App() {
 
       const now = Date.now();
       let importSequence = 0;
-      const mergedProductNameByCode = new Map(mergedProducts.map((product) =e [product.code, product.name]));
-      const updatedStock = stock.map((item) =e {
+      const mergedProductNameByCode = new Map(mergedProducts.map((product) => [product.code, product.name]));
+      const updatedStock = stock.map((item) => {
         const updatedName = mergedProductNameByCode.get(item.productCode);
         if (!updatedName || updatedName === item.productName) {
           return item;
@@ -360,10 +360,10 @@ export default function App() {
       for (const importedItem of importedStockEntries) {
         const resolvedName = mergedProductNameByCode.get(importedItem.productCode) ?? importedItem.productName;
         const existingIndex = updatedStock.findIndex(
-          (item) =e matchesStockIdentity(item, importedItem)
+          (item) => matchesStockIdentity(item, importedItem)
         );
 
-        if (existingIndex e= 0) {
+        if (existingIndex >= 0) {
           updatedStock[existingIndex] = {
             ...updatedStock[existingIndex],
             productName: resolvedName,
@@ -381,40 +381,42 @@ export default function App() {
       setStock(updatedStock);
 
       const importedMessage = `${importedProducts.length} produtos importados`;
-      const stockMessage = importedStockEntries.length e 0 ? ` e ${importedStockEntries.length} saldos aplicados` : 77;
-      const skippedMessage = skippedRows e 0 ? ` (${skippedRows} linhas ignoradas)` : 77;
-      showNotification(`${importedMessage}${stockMessage}${skippedMessage}.`, 7success7);
+      const stockMessage = importedStockEntries.length > 0 ? ` e ${importedStockEntries.length} saldos aplicados` : '';
+      const skippedMessage = skippedRows > 0 ? ` (${skippedRows} linhas ignoradas)` : '';
+      showNotification(`${importedMessage}${stockMessage}${skippedMessage}.`, 'success');
     } catch {
-      showNotification(7Erro ao importar planilha. Verifique o formato do arquivo Excel.7, 7info7);
+      showNotification('Erro ao importar planilha. Verifique o formato do arquivo Excel.', 'info');
     } finally {
-      inputElement.value = 77;
+      inputElement.value = '';
     }
   };
 
-  const handleAddProduct = (newProduct: Product) =e {
-    setProducts((prev) =e {
-      if (prev.some(p =e p.code === newProduct.code)) return prev;
+  const handleAddProduct = (newProduct: Product) => {
+    setProducts((prev) => {
+      if (prev.some(p => p.code === newProduct.code)) return prev;
       return [newProduct, ...prev];
     });
-    showNotification(`Produto \"${newProduct.name}\" cadastrado no banco de dados!`, 7success7);
+    showNotification(`Produto "${newProduct.name}" cadastrado no banco de dados!`, 'success');
   };
 
-  const handleAddMovement = (newMov: OmitcMovement, 7id7 | 7timestamp7e) =e {
+  const handleAddMovement = (newMov: Omit<Movement, 'id' | 'timestamp'>) => {
     const timestamp = new Date().toISOString();
     const id = `mov-${Date.now()}`;
-    const movementWithMeta: Movement = { ...newMov, id, timestamp };
+    const normalizedUnit: Movement['unit'] =
+      newMov.unit === 'FD' || newMov.unit === 'CX' ? newMov.unit : 'UN';
+    const movementWithMeta: Movement = { ...newMov, unit: normalizedUnit, id, timestamp };
 
-    setMovements((prev) =e [movementWithMeta, ...prev]);
+    setMovements((prev) => [movementWithMeta, ...prev]);
 
-    setStock((prevStock) =e {
+    setStock((prevStock) => {
       const stockCopy = [...prevStock];
 
-      if (newMov.type === 7ENTRADA7) {
+      if (newMov.type === 'ENTRADA') {
         const existingItemIndex = stockCopy.findIndex(
-          (item) =e matchesStockIdentity(item, newMov)
+          (item) => matchesStockIdentity(item, movementWithMeta)
         );
 
-        if (existingItemIndex e -1) {
+        if (existingItemIndex > -1) {
           stockCopy[existingItemIndex] = {
             ...stockCopy[existingItemIndex],
             quantity: stockCopy[existingItemIndex].quantity + newMov.quantity
@@ -425,7 +427,7 @@ export default function App() {
             productCode: newMov.productCode,
             productName: newMov.productName,
             quantity: newMov.quantity,
-            unit: newMov.unit,
+            unit: normalizedUnit,
             lot: newMov.lot,
             manufacturingDate: newMov.manufacturingDate,
             expirationDate: newMov.expirationDate,
@@ -442,25 +444,25 @@ export default function App() {
     });
   };
 
-  const handleDeleteMovement = (movementId: string) =e {
-    const movToCancel = movements.find(m =e m.id === movementId);
+  const handleDeleteMovement = (movementId: string) => {
+    const movToCancel = movements.find(m => m.id === movementId);
     if (!movToCancel) return;
 
     const confirmed = window.confirm(
-      `Deseja realmente ESTORNAR (cancelar) a movimentação de ${movToCancel.type} do produto \"${movToCancel.productName}\" (Qtd: ${movToCancel.quantity})?\\nO estoque será recalculado.`
+      `Deseja realmente ESTORNAR (cancelar) a movimentação de ${movToCancel.type} do produto "${movToCancel.productName}" (Qtd: ${movToCancel.quantity})?\nO estoque será recalculado.`
     );
     if (!confirmed) return;
 
-    setMovements((prev) =e prev.filter(m =e m.id !== movementId));
+    setMovements((prev) => prev.filter(m => m.id !== movementId));
 
-    setStock((prevStock) =e {
+    setStock((prevStock) => {
       const stockCopy = [...prevStock];
 
       const existingIndex = stockCopy.findIndex(
-        (item) =e matchesStockIdentity(item, movToCancel)
+        (item) => matchesStockIdentity(item, movToCancel)
       );
 
-      if (existingIndex e -1) {
+      if (existingIndex > -1) {
         const currentQty = stockCopy[existingIndex].quantity;
         const remaining = Math.max(0, currentQty - movToCancel.quantity);
         if (remaining === 0) {
@@ -473,160 +475,160 @@ export default function App() {
       return stockCopy;
     });
 
-    showNotification(7Movimentação estornada com sucesso. Estoque atualizado!7, 7info7);
+    showNotification('Movimentação estornada com sucesso. Estoque atualizado!', 'info');
   };
 
-  const handleResetDatabase = () =e {
-    const password = window.prompt(7Digite a senha para limpar a base geral:7);
-    if (password !== 7@Maral227) {
-      showNotification(7Senha inválida. A base não foi apagada.7, 7info7);
+  const handleResetDatabase = () => {
+    const password = window.prompt('Digite a senha para limpar a base geral:');
+    if (password !== '@Maral22') {
+      showNotification('Senha inválida. A base não foi apagada.', 'info');
       return;
     }
     const confirmed = window.confirm(
-      7Atenção: Isso irá APAGAR de forma irreversível todos os produtos cadastrados, estoque atual e histórico de movimentações. Deseja iniciar uma base limpa?7
+      'Atenção: Isso irá APAGAR de forma irreversível todos os produtos cadastrados, estoque atual e histórico de movimentações. Deseja iniciar uma base limpa?'
     );
     if (confirmed) {
-      localStorage.removeItem(7fast_stock_products7);
-      localStorage.removeItem(7fast_stock_inventory7);
-      localStorage.removeItem(7fast_stock_movements7);
+      localStorage.removeItem('fast_stock_products');
+      localStorage.removeItem('fast_stock_inventory');
+      localStorage.removeItem('fast_stock_movements');
       setProducts([]);
       setStock([]);
       setMovements([]);
-      showNotification(7Base de dados limpa com sucesso!7, 7info7);
+      showNotification('Base de dados limpa com sucesso!', 'info');
     }
   };
 
   return (
-    cdiv className=\"min-h-screen bg-slate-50 flex flex-col justify-between select-none\"e
-      cheader className=\"bg-slate-900 text-white shadow-md border-b border-slate-800 shrink-0\"e
-        cdiv className=\"max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3\"e
-          cdiv className=\"flex items-center gap-3\"e
-            cdiv className=\"bg-emerald-600 p-2.5 rounded-xl text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center\"e
-              cZap className=\"h-6 w-6 text-yellow-300 fill-yellow-300 shrink-0\" /e
-            c/dive
-            cdive
-              cdiv className=\"flex items-center gap-2\"e
-                ch1 className=\"font-sans font-black text-lg tracking-tight\"eC4 Gestãoc/h1e
-                cspan className=\"text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider\"e
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between select-none">
+      <header className="bg-slate-900 text-white shadow-md border-b border-slate-800 shrink-0">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-600 p-2.5 rounded-xl text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center">
+              <Zap className="h-6 w-6 text-yellow-300 fill-yellow-300 shrink-0" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-sans font-black text-lg tracking-tight">C4 Gestão</h1>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Módulo Conferência
-                c/spane
-              c/dive
-              cp className=\"text-xs text-slate-400\"e
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
                 Registro e conferência rápida de entradas de mercadorias
-              c/pe
-            c/dive
-          c/dive
+              </p>
+            </div>
+          </div>
 
-          cdiv className=\"flex items-center gap-2\"e
-            cinput
+          <div className="flex items-center gap-2">
+            <input
               ref={importInputRef}
-              type=\"file\"
-              accept=\".xlsx,.xls\"
-              className=\"hidden\"
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
               onChange={handleImportProducts}
-            /e
-            cbutton
-              onClick={() =e importInputRef.current?.click()}
-              className=\"text-[11px] font-bold text-slate-300 hover:text-emerald-300 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer\"
-              title=\"Importar produtos e quantidades de planilha Excel\"
-            e
-              cFileUp className=\"h-3 w-3\" /e
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              className="text-[11px] font-bold text-slate-300 hover:text-emerald-300 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+              title="Importar produtos e quantidades de planilha Excel"
+            >
+              <FileUp className="h-3 w-3" />
               Importar Excel
-            c/buttone
-            cbutton
+            </button>
+            <button
               onClick={handleResetDatabase}
-              className=\"text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer\"
-              title=\"Apagar todos os dados e começar base limpa\"
-            e
-              cRotateCcw className=\"h-3 w-3\" /e
+              className="text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+              title="Apagar todos os dados e começar base limpa"
+            >
+              <RotateCcw className="h-3 w-3" />
               Limpar Base Geral
-            c/buttone
-          c/dive
-        c/dive
-      c/headere
+            </button>
+          </div>
+        </div>
+      </header>
 
-      cmain className=\"flex-1 overflow-y-auto bg-slate-50 pb-6\"e
-        {showInstallBanner 66 (
-          cdiv className=\"max-w-4xl mx-auto mt-4 px-4\"e
-            cdiv className=\"bg-indigo-600 text-white rounded-3xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-indigo-600/20\"e
-              cdive
-                cp className=\"font-bold text-sm\"eInstale o aplicativo no tablet ou celularc/pe
-                cp className=\"text-xs text-indigo-100 mt-1\"eUse o botão abaixo para adicionar o C4 Gestão à tela inicial e acessar rapidamente offline.c/pe
-              c/dive
-              cbutton
-                type=\"button\"
+      <main className="flex-1 overflow-y-auto bg-slate-50 pb-6">
+        {showInstallBanner && (
+          <div className="max-w-4xl mx-auto mt-4 px-4">
+            <div className="bg-indigo-600 text-white rounded-3xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-indigo-600/20">
+              <div>
+                <p className="font-bold text-sm">Instale o aplicativo no tablet ou celular</p>
+                <p className="text-xs text-indigo-100 mt-1">Use o botão abaixo para adicionar o C4 Gestão à tela inicial e acessar rapidamente offline.</p>
+              </div>
+              <button
+                type="button"
                 onClick={handleInstallApp}
-                className=\"rounded-full bg-white text-indigo-700 px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-sm hover:bg-slate-100 transition\"
-              e
+                className="rounded-full bg-white text-indigo-700 px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-sm hover:bg-slate-100 transition"
+              >
                 Instalar App
-              c/buttone
-            c/dive
-          c/dive
+              </button>
+            </div>
+          </div>
         )}
 
-        {notification 66 (
-          cdiv className=\"max-w-md mx-auto mt-4 px-4\"e
-            cdiv className={`p-3.5 rounded-xl text-xs font-semibold shadow-md flex items-center gap-2 animate-bounce ${
-              notification.type === 7success7
-                ? 7bg-emerald-600 text-white7
-                : 7bg-indigo-600 text-white7
-            }`}e
-              cCheckCircle2 className=\"h-4.5 w-4.5 text-white shrink-0\" /e
-              cspane{notification.message}c/spane
-            c/dive
-          c/dive
+        {notification && (
+          <div className="max-w-md mx-auto mt-4 px-4">
+            <div className={`p-3.5 rounded-xl text-xs font-semibold shadow-md flex items-center gap-2 animate-bounce ${
+              notification.type === 'success'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-indigo-600 text-white'
+            }`}>
+              <CheckCircle2 className="h-4.5 w-4.5 text-white shrink-0" />
+              <span>{notification.message}</span>
+            </div>
+          </div>
         )}
 
-        cdiv className=\"max-w-4xl mx-auto px-4 mt-4\"e
-          cnav className=\"bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-2 gap-1\"e
-            cbutton
-              onClick={() =e setActiveScreen(7MOVIMENTACAO7)}
+        <div className="max-w-4xl mx-auto px-4 mt-4">
+          <nav className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-2 gap-1">
+            <button
+              onClick={() => setActiveScreen('MOVIMENTACAO')}
               className={`py-3 px-2 rounded-xl font-bold text-xs sm:text-sm tracking-tight transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
-                activeScreen === 7MOVIMENTACAO7
-                  ? 7bg-indigo-600 text-white shadow-md shadow-indigo-600/107
-                  : 7text-slate-600 hover:text-indigo-600 hover:bg-slate-507
+                activeScreen === 'MOVIMENTACAO'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10'
+                  : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
               }`}
-            e
-              cClipboardList className=\"h-4 w-4 shrink-0\" /e
-              cspaneRegistrar Entradac/spane
-            c/buttone
+            >
+              <ClipboardList className="h-4 w-4 shrink-0" />
+              <span>Registrar Entrada</span>
+            </button>
 
-            cbutton
-              onClick={() =e setActiveScreen(7CONSULTA7)}
+            <button
+              onClick={() => setActiveScreen('CONSULTA')}
               className={`py-3 px-2 rounded-xl font-bold text-xs sm:text-sm tracking-tight transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
-                activeScreen === 7CONSULTA7
-                  ? 7bg-indigo-600 text-white shadow-md shadow-indigo-600/107
-                  : 7text-slate-600 hover:text-indigo-600 hover:bg-slate-507
+                activeScreen === 'CONSULTA'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10'
+                  : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
               }`}
-            e
-              cArchive className=\"h-4 w-4 shrink-0\" /e
-              cspaneConsulta 6 Históricoc/spane
-            c/buttone
-          c/nave
-        c/dive
+            >
+              <Archive className="h-4 w-4 shrink-0" />
+              <span>Consulta & Histórico</span>
+            </button>
+          </nav>
+        </div>
 
-        cdiv className=\"mt-4\"e
-          {activeScreen === 7MOVIMENTACAO7 66 (
-            cMovementScreen
+        <div className="mt-4">
+          {activeScreen === 'MOVIMENTACAO' && (
+            <MovementScreen
               products={products}
               stock={stock}
               onAddMovement={handleAddMovement}
               onAddProduct={handleAddProduct}
               scannedCode={scannedCode}
               setScannedCode={setScannedCode}
-            /e
+            />
           )}
 
-          {activeScreen === 7CONSULTA7 66 (
-            cInventoryScreen
+          {activeScreen === 'CONSULTA' && (
+            <InventoryScreen
               products={products}
               stock={stock}
               movements={movements}
               onDeleteMovement={handleDeleteMovement}
-            /e
+            />
           )}
-        c/dive
-      c/maine
-    c/dive
+        </div>
+      </main>
+    </div>
   );
 }
